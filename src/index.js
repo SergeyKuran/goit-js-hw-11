@@ -1,8 +1,9 @@
 import 'simplelightbox/dist/simple-lightbox.min.css';
 import Notiflix from 'notiflix';
-// import { createFetch } from './getFetch';
 import axios from 'axios';
 import SimpleLightbox from 'simplelightbox';
+// import { createFetch } from './js/fucnCreateFetch';
+import { getRandomHexColor } from './js/funcGetRandHexCol';
 
 const ref = {
   form: document.querySelector('.search-form'),
@@ -11,16 +12,16 @@ const ref = {
   loadMoreBtn: document.querySelector('.load-more'),
 };
 
-const BASE_URL = 'https://pixabay.com/api/';
-const KEY = '16104754-fccb05fa4a4190bcc2750c19f';
-
-let page = 1;
+const lightBox = new SimpleLightbox('.gallery a');
 let searchQuery = '';
+let page = 1;
 
 ref.form.addEventListener('submit', onSubmit);
-ref.gallery.addEventListener('click', onClickLargeImg);
 
-function createFetch(value) {
+async function createFetch(value) {
+  const BASE_URL = 'https://pixabay.com/api/';
+  const KEY = '16104754-fccb05fa4a4190bcc2750c19f';
+
   const queryParams = new URLSearchParams({
     key: `${KEY}`,
     q: `${value}`,
@@ -31,18 +32,17 @@ function createFetch(value) {
     page: `${page}`,
   });
 
-  return fetch(`${BASE_URL}?${queryParams}`)
-    .then(responce => {
-      if (!responce.ok) {
-        throw new Error(Notiflix.Notify.info('STATUS', responce.statusText));
-      }
-
-      return responce.json();
-    })
-    .catch(err => Notiflix.Notify.failure('ERROR', err));
+  try {
+    const responce = await axios.get(BASE_URL + '?' + queryParams);
+    console.log(responce);
+    return responce.data;
+  } catch (err) {
+    Notiflix.Notify.info(err.message);
+  }
 }
 
-function onSubmit(evt) {
+//Функція при сабміті
+async function onSubmit(evt) {
   evt.preventDefault();
 
   const { value } = evt.target.elements.searchQuery;
@@ -55,28 +55,27 @@ function onSubmit(evt) {
   }
   ref.loadMoreBtn.style.display = 'none';
 
-  createFetch(searchQuery)
-    .then(data => {
-      if (!data.total) {
-        ref.gallery.innerHTML = '';
-        ref.form.reset();
-        throw new Error();
-      }
+  try {
+    const responce = await createFetch(searchQuery);
 
+    if (!responce.total) {
       ref.gallery.innerHTML = '';
-      page = 1;
+      ref.form.reset();
+      throw new Error();
+    }
 
-      createMarkupCard(data.hits);
-      Notiflix.Notify.info(`Hooray! We found ${data.totalHits} images.`);
+    ref.gallery.innerHTML = '';
+    page = 1;
 
-      ref.loadMoreBtn.addEventListener('click', onLoadMore);
-    })
-    .catch(() => {
-      Notiflix.Notify.failure(
-        'Sorry, there are no images matching your search query. Please try again.'
-      );
-    });
+    createMarkupCard(responce.hits);
+    Notiflix.Notify.info(`Hooray! We found ${responce.totalHits} images.`);
+  } catch (err) {
+    Notiflix.Notify.failure(
+      'Sorry, there are no images matching your search query. Please try again.'
+    );
+  }
 
+  ref.loadMoreBtn.addEventListener('click', onLoadMore);
   ref.container.style.backgroundColor = getRandomHexColor();
 }
 
@@ -120,31 +119,24 @@ function createMarkupCard(arr) {
 
   ref.gallery.insertAdjacentHTML('beforeend', array);
   ref.loadMoreBtn.style.display = 'block';
+  lightBox.refresh();
 }
 
-//Функція створення кольору фону при кожному сабміті форми
-function getRandomHexColor() {
-  return `#${Math.floor(Math.random() * 16777215)
-    .toString(16)
-    .padStart(6, 0)}`;
-}
-
-function onLoadMore() {
+async function onLoadMore() {
   page += 1;
 
-  const response = createFetch(searchQuery).then(data => {
-    if (!data.hits.length) {
+  try {
+    const response = await createFetch(searchQuery);
+
+    if (!response.hits.length) {
       ref.loadMoreBtn.style.display = 'none';
-      return Notiflix.Notify.info(
-        "We're sorry, but you've reached the end of search results."
-      );
+      throw new Error();
     }
 
-    createMarkupCard(data.hits);
-  });
-}
-
-function onClickLargeImg(evt) {
-  evt.preventDefault();
-  const lightBox = new SimpleLightbox('.gallery a');
+    createMarkupCard(response.hits);
+  } catch (err) {
+    Notiflix.Notify.info(
+      "We're sorry, but you've reached the end of search results."
+    );
+  }
 }
