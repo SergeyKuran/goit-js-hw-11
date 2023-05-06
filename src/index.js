@@ -34,7 +34,6 @@ async function createFetch(value) {
 
   try {
     const responce = await axios.get(BASE_URL + '?' + queryParams);
-    console.log(responce);
     return responce.data;
   } catch (err) {
     Notiflix.Notify.info(err.message);
@@ -44,6 +43,7 @@ async function createFetch(value) {
 //Функція при сабміті
 async function onSubmit(evt) {
   evt.preventDefault();
+  page = 1;
 
   const { value } = evt.target.elements.searchQuery;
   searchQuery = value.trim();
@@ -69,6 +69,10 @@ async function onSubmit(evt) {
 
     createMarkupCard(responce.hits);
     Notiflix.Notify.info(`Hooray! We found ${responce.totalHits} images.`);
+
+    if (responce.hits.length < 40) {
+      ref.loadMoreBtn.style.display = 'none';
+    }
   } catch (err) {
     Notiflix.Notify.failure(
       'Sorry, there are no images matching your search query. Please try again.'
